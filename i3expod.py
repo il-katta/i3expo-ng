@@ -12,7 +12,6 @@ import sys
 import pprint
 import time
 import argparse
-import subprocess
 import math
 from threading import Thread
 import prtscn
@@ -27,22 +26,17 @@ from contextlib import suppress
 from PIL import ImageFilter, ImageEnhance, Image
 
 
+def i3_get_primary_output():
+    for o in i3.get_outputs():
+        if o.primary:
+            return o
+    return None
+
+
 def get_primary_output_name():
-    stdout, stderr = subprocess.Popen('xrandr --listmonitors',
-                                      shell=True, stdout=subprocess.PIPE).communicate()
-    if stdout != '':
-        monitorlines = stdout.decode().split("\n")
-        # Search for the primary (marked with +*)
-        # If none found (e.g. primary is on a disconnected output), take the first
-        primary = None
-        for m in monitorlines:
-            if "+*" in m:
-                primary = m
-                break  # Early exit from the cycle
-            elif "+" in m:
-                primary = m  # We found a monitor. Keep it
-        if primary != None:
-            return primary.split()[-1]
+    primary_output = i3_get_primary_output()
+    if primary_output is not None:
+        return primary_output.name
     return None
 
 
@@ -64,8 +58,6 @@ global_updates_running = True
 last_update = 0
 global_knowledge = {'active': 0, 'wss': {}, 'ui_cache': {}, 'visible_ws_primary': None, 'out_aliases': {}}
 
-pygame.display.init()
-pygame.font.init()
 i3 = i3ipc.Connection(auto_reconnect=True)
 
 
@@ -301,6 +293,16 @@ def gen_active_win_overlay(rectangle, alpha=255):
     lightmask_position = (rectangle.x - int(win_pad / 2), rectangle.y - int(win_pad / 2))
     lightmask.fill(YELLOW + (alpha,))
     return lightmask, lightmask_position
+
+
+def get_primary_output_monitor_displacement():
+    primary_output = i3_get_primary_output()
+    if primary_output is None:
+        return None
+    if 'rect' not in primary_output.ipc_data.keys():
+        return None
+    rect = primary_output.ipc_data['rect']
+    return f"{rect['x']},{rect['y']}"
 
 
 def show_ui():
@@ -815,7 +817,10 @@ def reset_update_timer(i3, e):
 
 
 def main():
+    os.environ['SDL_VIDEO_WINDOW_POS'] = get_primary_output_monitor_displacement()
     read_config()
+    pygame.display.init()
+    pygame.font.init()
     init_knowledge()
     update_state(i3, None)
 
