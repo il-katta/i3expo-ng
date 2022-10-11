@@ -25,21 +25,6 @@ except ImportError:
 from contextlib import suppress
 from PIL import ImageFilter, ImageEnhance, Image
 
-
-def i3_get_primary_output():
-    for o in i3.get_outputs():
-        if o.primary:
-            return o
-    return None
-
-
-def get_primary_output_name():
-    primary_output = i3_get_primary_output()
-    if primary_output is not None:
-        return primary_output.name
-    return None
-
-
 parser = argparse.ArgumentParser()
 parser.add_argument("-f", "--fullscreen", action="store_true",
                     help="run in fullscreen")
@@ -59,6 +44,27 @@ last_update = 0
 global_knowledge = {'active': 0, 'wss': {}, 'ui_cache': {}, 'visible_ws_primary': None, 'out_aliases': {}}
 
 i3 = i3ipc.Connection(auto_reconnect=True)
+
+
+def i3_get_focused_workspace():
+    for o in i3.get_workspaces():
+        if o.focused:
+            return o
+    return None
+
+
+def i3_get_primary_output():
+    for o in i3.get_outputs():
+        if o.primary:
+            return o
+    return None
+
+
+def get_primary_output_name():
+    primary_output = i3_get_primary_output()
+    if primary_output is not None:
+        return primary_output.name
+    return None
 
 
 def signal_quit(signal, frame):
@@ -91,14 +97,23 @@ def signal_show(signal, frame):
         global_knowledge['wss'][global_knowledge['active']]['focused_win_id'] = focused_win.id
         global_knowledge['wss'][global_knowledge['active']]['focused_win_size'] = \
             (focused_win.window_rect.width, focused_win.window_rect.height)
+        show_on_focused_workspace = get_config('UI', 'show_on_focused_workspace')
 
         # Open the expo view on the primary output:
         # 1) Get primary monitor name
-        primary_output_name = get_primary_output_name()
+        if show_on_focused_workspace:
+            ws = i3_get_focused_workspace()
+            if ws is None:
+                return
+            visible_ws_primary = ws.num
+        else:
+            output = i3_get_primary_output()
+            if output is None:
+                return
+            visible_ws_primary = int(output.current_workspace)
 
         # 2) Get the visible workspace on the primary monitor
-        visible_ws_primary = [w.num for w in i3.get_workspaces()
-                              if w.visible == True and w.output == primary_output_name][0]
+
         global_knowledge['visible_ws_primary'] = visible_ws_primary
 
         # 3) First move to the active ws on the primary output, then create a temporary workspace for the expo view
@@ -175,6 +190,7 @@ defaults = {
     ('UI', 'names_color'): (get_color, get_color(raw='white')),
     ('UI', 'names_position'): (config.get, "under"),
     ('UI', 'highlight_percentage'): (config.getint, 20),
+    ('UI', 'show_on_focused_workspace'): (config.getboolean, "False"),
 }
 
 
@@ -203,7 +219,8 @@ def isset(option):
         return True
     except ValueError:
         return False
-
+    except configparser.NoOptionError:
+        return False
 
 def grab_screen(x=None, y=None, w=None, h=None):
     result = prtscn.getScreen(x, y, w, h)
@@ -293,16 +310,6 @@ def gen_active_win_overlay(rectangle, alpha=255):
     lightmask_position = (rectangle.x - int(win_pad / 2), rectangle.y - int(win_pad / 2))
     lightmask.fill(YELLOW + (alpha,))
     return lightmask, lightmask_position
-
-
-def get_primary_output_monitor_displacement():
-    primary_output = i3_get_primary_output()
-    if primary_output is None:
-        return None
-    if 'rect' not in primary_output.ipc_data.keys():
-        return None
-    rect = primary_output.ipc_data['rect']
-    return f"{rect['x']},{rect['y']}"
 
 
 def show_ui():
@@ -817,7 +824,6 @@ def reset_update_timer(i3, e):
 
 
 def main():
-    os.environ['SDL_VIDEO_WINDOW_POS'] = get_primary_output_monitor_displacement()
     read_config()
     pygame.display.init()
     pygame.font.init()
