@@ -668,6 +668,8 @@ def show_ui():
             pygame.display.flip()
             clock.tick(FPS)
 
+    jump = False
+
     # Main loop: redraw screen and check status
     while running and not global_updates_running and pygame.display.get_init():
 
