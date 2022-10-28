@@ -48,5 +48,6 @@ clean:
 	rm -rf build
 	rm -rf dist
 	rm -rf i3expod.egg-info
+	rm -f prtscn.so
 
 PHONY: clean install uninstall pip3dependencies $(CONFIG_FILE) uninstall_previous_version
