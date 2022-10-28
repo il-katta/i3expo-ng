@@ -224,10 +224,7 @@ def isset(option):
 
 def grab_screen(x=None, y=None, w=None, h=None):
     result = prtscn.getScreen(x, y, w, h)
-    pil = Image.frombuffer('RGB', (w, h), result, 'raw', 'RGB', 0, 1)
-    # draw = ImageDraw.Draw(pil)
-    # draw.text((100,100), 'abcde')
-    return pygame.image.fromstring(pil.tobytes(), pil.size, pil.mode)
+    return pygame.image.frombuffer(result, (w, h), 'RGB')
 
 
 def update_workspace(workspace, screenshot=None):
