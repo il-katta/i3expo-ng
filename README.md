@@ -115,7 +115,12 @@ The old one will be maintained as `config.old`.
 ## Startup
 
 Add this to your `i3` config:
-`exec_always --no-startup-id ~/.local/bin/i3expod -f -w /home/user/Images/wallpapers/14.jpg`
+
+```
+for_window [class="i3expod"] fullscreen enable
+
+exec_always --no-startup-id ~/.local/bin/i3expod -f -w /home/user/Images/wallpapers/14.jpg
+```
 
 `-f` is for fullscreen (causes pygame to crash on a black screen on some distros)
 
